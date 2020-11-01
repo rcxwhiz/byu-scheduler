@@ -160,6 +160,8 @@ public class ByuApi
 
 			List<Section> sections = new ArrayList<>();
 
+			// TODO use ExecutorService on this
+
 			for (Object item1 : sectionsObj)
 			{
 				JSONObject sectionObj = (JSONObject) item1;
