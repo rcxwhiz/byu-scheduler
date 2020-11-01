@@ -1,5 +1,6 @@
 package api;
 
+import model.Section;
 import model.Semester;
 import model.SemesterYear;
 import model.id.CourseId;
@@ -15,6 +16,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 public class ByuApi
@@ -65,8 +68,10 @@ public class ByuApi
 		MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
 		map.add("sessionId", generateId());
 		map.add("searchObject[yearterm]", semesterYear.getYearTerm());
-		// TODO need to figure out how this should work
-		map.add("searchObject[teaching_areas][]", departments.keySet().toString());
+		for (String dept : departments.keySet())
+		{
+			map.add("searchObject[teaching_areas][]", dept);
+		}
 
 		return sendRequest(map, coursesApi);
 	}
@@ -82,6 +87,8 @@ public class ByuApi
 
 	public static Semester getSemester(SemesterYear semesterYear)
 	{
+		Semester semester = new Semester(semesterYear);
+
 		JSONObject semesterResponse;
 		try
 		{
@@ -102,6 +109,38 @@ public class ByuApi
 		{
 			System.out.println("Exception getting courses:\n" + e.toString());
 			return null;
+		}
+
+		for (String courseKey : coursesResponse.keySet())
+		{
+			JSONObject courseObj = coursesResponse.getJSONObject(courseKey);
+
+			CurriculumId curriculumId = new CurriculumId(courseObj.getInt("curriculum_id"));
+			TitleCode titleCode = new TitleCode(courseObj.getInt("title_code"));
+			CourseId courseId = new CourseId(curriculumId, titleCode);
+			String deptName = courseObj.getString("dept_name");
+			String catalogSuffix = courseObj.getString("catalog_suffix");
+			String title = courseObj.getString("title");
+			String fullTitle = courseObj.getString("full_title");
+			// credit hours
+			// description
+			// effective date
+			// expired year term
+			// honors approved
+			// lab hours
+			// lecture hours
+			// note
+			// offered
+			// prerequisites
+			// recommended
+			// when taught
+
+			JSONObject sectionsResponse = makeSectionRequest(curriculumId, titleCode);
+			List<Section> sections = new ArrayList<>();
+			for (String sectionNum : sectionsResponse.keySet())
+			{
+				int test = 0;
+			}
 		}
 
 		return null;

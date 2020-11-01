@@ -7,6 +7,8 @@ import java.util.Map;
 
 public class Semester
 {
+	// TODO could maybe add a map with depts and their courses?
+
 	private final SemesterYear semesterYear;
 	private final Map<CourseId, Course> courses;
 
