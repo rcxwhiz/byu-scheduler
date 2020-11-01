@@ -32,7 +32,7 @@ public class CourseId implements Id
 	@Override
 	public String toString()
 	{
-		return curriculumId.toString() + '-' + titleCode.toString();
+		return String.format("%05d-%03d", curriculumId.getValue(), titleCode.getValue());
 	}
 
 	@Override
