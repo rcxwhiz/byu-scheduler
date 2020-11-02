@@ -91,6 +91,7 @@ public class ByuApi
 	public static Semester getSemester(SemesterYear semesterYear)
 	{
 		JSONObject semesterResponse;
+		System.out.printf("Requesting semester: %s\n", semesterYear.getYearTerm());
 		try
 		{
 			semesterResponse = makeSemesterRequest(semesterYear);
@@ -102,8 +103,12 @@ public class ByuApi
 		}
 
 		Map<PersonId, Instructor> instructors = new HashMap<>();
+		int numProfessorsCovered = 0;
 		for (Object item : semesterResponse.getJSONArray("instructor_list"))
 		{
+			numProfessorsCovered++;
+			System.out.printf("\rGetting instructor %d/%d         ", numProfessorsCovered, semesterResponse.getJSONArray("instructor_list").length());
+
 			JSONObject instructorObj = (JSONObject) item;
 
 			PersonId personId = new PersonId(instructorObj.getInt("id"));
@@ -134,8 +139,10 @@ public class ByuApi
 
 			instructors.put(personId, instructor);
 		}
+		System.out.println();
 
 		JSONObject coursesResponse;
+		System.out.println("Requesting courses");
 		try
 		{
 			coursesResponse = makeCoursesRequest(semesterYear, semesterResponse.getJSONObject("department_list"));
@@ -148,13 +155,14 @@ public class ByuApi
 
 		Map<CourseId, Course> courses = new HashMap<>();
 
-
-		Iterator<String> courseIterator = coursesResponse.keySet().iterator();
+		final Iterator<String> courseIterator = coursesResponse.keySet().iterator();
+		final List<Integer> countingList = new ArrayList<>(List.of(0));
 		Callable<Boolean> courseTask = () ->
 		{
-			String courseKey = courseIterator.next();
+			countingList.set(0, countingList.get(0) + 1);
+			System.out.printf("\rGetting course: %d/%d       ", countingList.get(0), coursesResponse.keySet().size());
 
-			System.out.printf("Getting course: %s\n", courseKey);
+			String courseKey = courseIterator.next();
 
 			JSONObject courseObj = coursesResponse.getJSONObject(courseKey);
 
@@ -360,6 +368,7 @@ public class ByuApi
 		}
 		// will make the executor finish all its added tasks
 		executor.shutdown();
+		System.out.println();
 
 		return new Semester(semesterYear, courses);
 	}

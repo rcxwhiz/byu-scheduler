@@ -22,9 +22,7 @@ public class ByuScheduler
 	{
 		return args ->
 		{
-			System.out.println("hello");
 			Semester semester = ByuApi.getSemester(new SemesterYear(1, 2020));
-			System.out.println("bye");
 		};
 	}
 }
