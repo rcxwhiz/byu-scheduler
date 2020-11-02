@@ -1,6 +1,12 @@
 package model.id;
 
-public interface Id
+abstract class Id
 {
-	boolean idEquals(Object o);
+	abstract boolean idEquals(Object o);
+
+	@Override
+	public boolean equals(Object o)
+	{
+		return idEquals(o);
+	}
 }

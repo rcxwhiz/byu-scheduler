@@ -1,9 +1,7 @@
 package api;
 
 import model.*;
-import model.id.CourseId;
-import model.id.CurriculumId;
-import model.id.TitleCode;
+import model.id.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.http.HttpEntity;
@@ -15,6 +13,9 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ByuApi
 {
@@ -23,6 +24,8 @@ public class ByuApi
 	private static final String sectionsApi = "http://saasta.byu.edu/noauth/classSchedule/ajax/getSections.php";
 	private static final char[] idChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890".toCharArray();
 	private static final int idLength = 20;
+
+	private static final int numThreads = 10;
 
 	private static String generateId()
 	{
@@ -85,11 +88,6 @@ public class ByuApi
 		return sendRequest(map, sectionsApi);
 	}
 
-	private static String safeGetString(JSONObject obj, String key)
-	{
-		return obj.getString(key) == JSONObject.NULL ? null : obj.getString(key);
-	}
-
 	public static Semester getSemester(SemesterYear semesterYear)
 	{
 		JSONObject semesterResponse;
@@ -101,6 +99,40 @@ public class ByuApi
 		{
 			System.out.println("Exception getting semester:\n" + e.toString());
 			return null;
+		}
+
+		Map<PersonId, Instructor> instructors = new HashMap<>();
+		for (Object item : semesterResponse.getJSONArray("instructor_list"))
+		{
+			JSONObject instructorObj = (JSONObject) item;
+
+			PersonId personId = new PersonId(instructorObj.getInt("id"));
+			ByuId byuId = null;
+			NetId netId = null;
+			String firstName = instructorObj.optString("first_name");
+			String lastName = instructorObj.optString("last_name");
+			String sortName = instructorObj.optString("sort_name");
+			String preferredFirstName = null;
+			String restOfName = null;
+			String surname = null;
+			String phoneNumber = null;
+			RmpRating rmpRating = null;
+
+			Instructor instructor = new Instructor(
+					personId,
+					byuId,
+					netId,
+					firstName,
+					lastName,
+					sortName,
+					preferredFirstName,
+					restOfName,
+					surname,
+					phoneNumber,
+					rmpRating
+			);
+
+			instructors.put(personId, instructor);
 		}
 
 		JSONObject coursesResponse;
@@ -116,8 +148,14 @@ public class ByuApi
 
 		Map<CourseId, Course> courses = new HashMap<>();
 
-		for (String courseKey : coursesResponse.keySet())
+
+		Iterator<String> courseIterator = coursesResponse.keySet().iterator();
+		Callable<Boolean> courseTask = () ->
 		{
+			String courseKey = courseIterator.next();
+
+			System.out.printf("Getting course: %s\n", courseKey);
+
 			JSONObject courseObj = coursesResponse.getJSONObject(courseKey);
 
 			CurriculumId curriculumId = new CurriculumId(courseObj.getInt("curriculum_id"));
@@ -132,7 +170,7 @@ public class ByuApi
 			catch (Exception e)
 			{
 				System.out.println("Exception getting sections:\n" + e.toString());
-				return null;
+				throw e;
 			}
 
 			JSONObject catalogObj = sectionsResponse.getJSONObject("catalog");
@@ -160,8 +198,6 @@ public class ByuApi
 
 			List<Section> sections = new ArrayList<>();
 
-			// TODO use ExecutorService on this
-
 			for (Object item1 : sectionsObj)
 			{
 				JSONObject sectionObj = (JSONObject) item1;
@@ -180,15 +216,44 @@ public class ByuApi
 				String modeDesc = sectionObj.optString("mode_desc");
 				String yearTerm = sectionObj.optString("year_term");
 
-				List<Instructor> instructors = new ArrayList<>();
+				List<Instructor> sectionInstructors = new ArrayList<>();
 
 				for (Object item2 : sectionObj.getJSONArray("instructors"))
 				{
 					JSONObject instructorObj = (JSONObject) item2;
 
-					// TODO stuff
+					PersonId personId = new PersonId(instructorObj.getInt("person_id"));
 
-					// TODO add instructor
+					Instructor originalInstructor = instructors.get(personId);
+
+					ByuId byuId = new ByuId(instructorObj.getInt("byu_id"));
+					NetId netId = new NetId(instructorObj.getString("net_id"));
+					String firstName = originalInstructor.getFirstName();
+					String lastName = originalInstructor.getLastName();
+					String sortName = originalInstructor.getSortName();
+					String preferredFirstName = instructorObj.optString("preferred_first_name");
+					String restOfName = instructorObj.optString("rest_of_name");
+					String surname = instructorObj.optString("surname");
+					String phoneNumber = instructorObj.optString("phone_number");
+					RmpRating rmpRating = null;
+
+					Instructor newInstructor = new Instructor(
+							personId,
+							byuId,
+							netId,
+							firstName,
+							lastName,
+							sortName,
+							preferredFirstName,
+							restOfName,
+							surname,
+							phoneNumber,
+							rmpRating
+					);
+
+					// not necessary to update original dict?
+					// instructors.put(personId, newInstructor);
+					sectionInstructors.add(newInstructor);
 				}
 
 				List<Meeting> meetings = new ArrayList<>();
@@ -244,36 +309,57 @@ public class ByuApi
 						mode,
 						modeDesc,
 						yearTerm,
-						instructors,
+						sectionInstructors,
 						meetings
 				));
 			}
 
 			courses.put(courseId,
 					new Course(
-					courseId,
-					deptName,
-					catalogNumber,
-					catalogSuffix,
-					title,
-					fullTitle,
-					creditHours,
-					description,
-					effectiveDate,
-					expiredDate,
-					effectiveYearTerm,
-					expiredYearTerm,
-					honorsApproved,
-					labHours,
-					lectureHours,
-					note,
-					offered,
-					prerequisite,
-					recommended,
-					whenTaught,
-					sections
-			));
+							courseId,
+							deptName,
+							catalogNumber,
+							catalogSuffix,
+							title,
+							fullTitle,
+							creditHours,
+							description,
+							effectiveDate,
+							expiredDate,
+							effectiveYearTerm,
+							expiredYearTerm,
+							honorsApproved,
+							labHours,
+							lectureHours,
+							note,
+							offered,
+							prerequisite,
+							recommended,
+							whenTaught,
+							sections
+					));
+			return true;
+		};
+
+		List<Callable<Boolean>> courseTasks = new ArrayList<>();
+		for (int i = 0; i < coursesResponse.keySet().size(); i++)
+		{
+			courseTasks.add(courseTask);
 		}
+
+		ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+		try
+		{
+			executor.invokeAll(courseTasks);
+		}
+		catch (InterruptedException e)
+		{
+			e.printStackTrace();
+			executor.shutdownNow();
+			return null;
+		}
+		// will make the executor finish all its added tasks
+		executor.shutdown();
 
 		return new Semester(semesterYear, courses);
 	}

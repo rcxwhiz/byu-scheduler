@@ -1,8 +1,8 @@
 package model.id;
 
-public class ByuId extends StringId
+public class ByuId extends NumericId
 {
-	public ByuId(String value)
+	public ByuId(int value)
 	{
 		super(value);
 	}

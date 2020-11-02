@@ -2,7 +2,7 @@ package model.id;
 
 import java.util.Objects;
 
-public class CourseId implements Id
+public class CourseId extends Id
 {
 	private final CurriculumId curriculumId;
 	private final TitleCode titleCode;
@@ -26,22 +26,16 @@ public class CourseId implements Id
 	@Override
 	public boolean idEquals(Object o)
 	{
-		return equals(o);
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		CourseId courseId = (CourseId) o;
+		return curriculumId.equals(courseId.getCurriculumId()) && titleCode.equals(courseId.getTitleCode());
 	}
 
 	@Override
 	public String toString()
 	{
 		return String.format("%05d-%03d", curriculumId.getValue(), titleCode.getValue());
-	}
-
-	@Override
-	public boolean equals(Object o)
-	{
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		CourseId courseId = (CourseId) o;
-		return curriculumId.equals(courseId.getCurriculumId()) && titleCode.equals(courseId.getTitleCode());
 	}
 
 	@Override
